@@ -1,6 +1,8 @@
 package com.billingapp.controller;
 
+import com.billingapp.dto.ItemQuantity;
 import com.billingapp.entity.Item;
+import com.billingapp.exception.InsufficientStockException;
 import com.billingapp.service.ItemService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +42,13 @@ public class ItemController {
                     .body("Item with name '" + item.getItemName() + "' already exists");
             }
             
+            // Check if barcode already exists
+            if (item.getBarcode() != null && !item.getBarcode().trim().isEmpty() && 
+                itemService.barcodeExists(item.getBarcode())) {
+                return ResponseEntity.badRequest()
+                    .body("Item with barcode '" + item.getBarcode() + "' already exists");
+            }
+            
             Item savedItem = itemService.saveItem(item);
             return ResponseEntity.status(HttpStatus.CREATED).body(savedItem);
         } catch (Exception e) {
@@ -47,15 +56,63 @@ public class ItemController {
         }
     }
     
+    @GetMapping("/search")
+    public ResponseEntity<List<Item>> searchItems(@RequestParam(required = false) String query) {
+        List<Item> items = itemService.searchItems(query);
+        return ResponseEntity.ok(items);
+    }
+    
+    @GetMapping("/barcode/{barcode}")
+    public ResponseEntity<Item> getItemByBarcode(@PathVariable String barcode) {
+        Optional<Item> item = itemService.getItemByBarcode(barcode);
+        return item.map(ResponseEntity::ok)
+                 .orElse(ResponseEntity.notFound().build());
+    }
+    
     @PutMapping("/{id}")
     public ResponseEntity<?> updateItem(@PathVariable Long id, @Valid @RequestBody Item itemDetails) {
         try {
-            Item updatedItem = itemService.updateItem(id, itemDetails);
+            Item existingItem = itemService.getItemById(id)
+                .orElseThrow(() -> new RuntimeException("Item not found with id: " + id));
+                
+            // Check if barcode is being changed and already exists
+            if (itemDetails.getBarcode() != null && !itemDetails.getBarcode().equals(existingItem.getBarcode()) && 
+                itemService.barcodeExists(itemDetails.getBarcode())) {
+                return ResponseEntity.badRequest()
+                    .body("Another item with barcode '" + itemDetails.getBarcode() + "' already exists");
+            }
+            
+            // Update item details
+            existingItem.setItemName(itemDetails.getItemName());
+            existingItem.setBarcode(itemDetails.getBarcode());
+            existingItem.setCategory(itemDetails.getCategory());
+            existingItem.setPurchasePrice(itemDetails.getPurchasePrice());
+            existingItem.setMrp(itemDetails.getMrp());
+            existingItem.setSellPrice(itemDetails.getSellPrice());
+            existingItem.setMinSellPrice(itemDetails.getMinSellPrice());
+            existingItem.setCurrentStock(itemDetails.getCurrentStock());
+            existingItem.setMinStockLevel(itemDetails.getMinStockLevel());
+            existingItem.setUnit(itemDetails.getUnit());
+            
+            Item updatedItem = itemService.saveItem(existingItem);
             return ResponseEntity.ok(updatedItem);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error updating item: " + e.getMessage());
+        }
+    }
+    
+    @PutMapping("/{id}/stock")
+    public ResponseEntity<?> updateItemStock(@PathVariable Long id, @RequestBody StockUpdateRequest request) {
+        try {
+            Item existingItem = itemService.getItemById(id)
+                .orElseThrow(() -> new RuntimeException("Item not found with id: " + id));
+            
+            existingItem.setCurrentStock(request.getCurrentStock());
+            Item updatedItem = itemService.saveItem(existingItem);
+            
+            return ResponseEntity.ok(updatedItem);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error updating stock: " + e.getMessage());
         }
     }
     
@@ -69,12 +126,6 @@ public class ItemController {
         }
     }
     
-    @GetMapping("/search")
-    public ResponseEntity<List<Item>> searchItems(@RequestParam String q) {
-        List<Item> items = itemService.searchItems(q);
-        return ResponseEntity.ok(items);
-    }
-    
     @GetMapping("/low-stock")
     public ResponseEntity<List<Item>> getLowStockItems() {
         List<Item> lowStockItems = itemService.getLowStockItems();
@@ -85,5 +136,31 @@ public class ItemController {
     public ResponseEntity<List<Item>> getItemsByCategory(@PathVariable String category) {
         List<Item> items = itemService.getItemsByCategory(category);
         return ResponseEntity.ok(items);
+    }
+    
+    @PostMapping("/update-stock")
+    public ResponseEntity<?> updateStockForBill(@Valid @RequestBody List<ItemQuantity> itemQuantities) {
+        try {
+            itemService.updateStockForBill(itemQuantities);
+            return ResponseEntity.ok().build();
+        } catch (InsufficientStockException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                             .body("Error updating stock: " + e.getMessage());
+        }
+    }
+    
+    // Inner class for stock update request
+    public static class StockUpdateRequest {
+        private int currentStock;
+        
+        public int getCurrentStock() {
+            return currentStock;
+        }
+        
+        public void setCurrentStock(int currentStock) {
+            this.currentStock = currentStock;
+        }
     }
 }

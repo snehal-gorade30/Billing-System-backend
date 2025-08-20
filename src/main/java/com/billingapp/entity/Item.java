@@ -17,6 +17,9 @@ public class Item {
     @Column(name = "item_name", nullable = false)
     private String itemName;
     
+    @Column(name = "name", nullable = false, unique = true)
+    private String name;
+    
     @Column(name = "category")
     private String category;
     
@@ -53,6 +56,9 @@ public class Item {
     @Column(name = "unit", nullable = false)
     private String unit;
     
+    @Column(name = "barcode", unique = true, length = 100)
+    private String barcode;
+    
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
@@ -64,7 +70,7 @@ public class Item {
     
     public Item(String itemName, String category, BigDecimal purchasePrice, BigDecimal mrp, 
                 BigDecimal sellPrice, BigDecimal minSellPrice, Integer currentStock, 
-                Integer minStockLevel, String unit) {
+                Integer minStockLevel, String unit, String barcode) {
         this.itemName = itemName;
         this.category = category;
         this.purchasePrice = purchasePrice;
@@ -74,18 +80,37 @@ public class Item {
         this.currentStock = currentStock;
         this.minStockLevel = minStockLevel;
         this.unit = unit;
+        this.barcode = barcode;
     }
     
     // Lifecycle methods
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-    
     @PreUpdate
-    protected void onUpdate() {
+    protected void validateAndUpdateTimestamps() {
+        // Update timestamps
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
         updatedAt = LocalDateTime.now();
+        
+        // Ensure barcode is null if empty
+        if (this.barcode != null && this.barcode.trim().isEmpty()) {
+            this.barcode = null;
+        }
+        
+        // Validate prices
+        if (purchasePrice.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Purchase price must be greater than 0");
+        }
+        if (mrp.compareTo(purchasePrice) < 0) {
+            throw new IllegalArgumentException("MRP cannot be less than purchase price");
+        }
+        if (sellPrice.compareTo(purchasePrice) < 0) {
+            throw new IllegalArgumentException("Sell price cannot be less than purchase price");
+        }
+        if (minSellPrice != null && minSellPrice.compareTo(sellPrice) > 0) {
+            throw new IllegalArgumentException("Minimum sell price cannot be greater than sell price");
+        }
     }
     
     // Calculated field
@@ -103,6 +128,9 @@ public class Item {
     
     public String getItemName() { return itemName; }
     public void setItemName(String itemName) { this.itemName = itemName; }
+    
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
     
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
@@ -127,6 +155,14 @@ public class Item {
     
     public String getUnit() { return unit; }
     public void setUnit(String unit) { this.unit = unit; }
+    
+    public String getBarcode() {
+        return barcode;
+    }
+
+    public void setBarcode(String barcode) {
+        this.barcode = barcode;
+    }
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

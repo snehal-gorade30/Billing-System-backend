@@ -5,9 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class BillRequest {
@@ -23,11 +25,19 @@ public class BillRequest {
     
     @NotEmpty(message = "Items list cannot be empty")
     @Valid
-    private List<BillItemRequest> items;
+    private List<BillItemRequest> items = new ArrayList<>();
     
     @NotNull(message = "Subtotal is required")
     @Positive(message = "Subtotal must be positive")
     private BigDecimal subtotal;
+    
+    @NotNull(message = "Tax amount is required")
+    @PositiveOrZero(message = "Tax amount must be positive or zero")
+    private BigDecimal taxAmount;
+    
+    @NotNull(message = "Discount amount is required")
+    @PositiveOrZero(message = "Discount amount must be positive or zero")
+    private BigDecimal discountAmount;
     
     @NotNull(message = "Grand total is required")
     @Positive(message = "Grand total must be positive")
@@ -36,8 +46,8 @@ public class BillRequest {
     @NotBlank(message = "Type is required")
     private String type;
     
-    @NotNull(message = "Date is required")
-    private String date;
+    @NotNull(message = "Bill date is required")
+    private LocalDateTime billDate;
     
     // Constructors
     public BillRequest() {}
@@ -91,6 +101,22 @@ public class BillRequest {
         this.subtotal = subtotal;
     }
     
+    public BigDecimal getTaxAmount() {
+        return taxAmount;
+    }
+    
+    public void setTaxAmount(BigDecimal taxAmount) {
+        this.taxAmount = taxAmount;
+    }
+    
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+    
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
+    }
+    
     public BigDecimal getGrandTotal() {
         return grandTotal;
     }
@@ -107,12 +133,12 @@ public class BillRequest {
         this.type = type;
     }
     
-    public String getDate() {
-        return date;
+    public LocalDateTime getBillDate() {
+        return billDate;
     }
     
-    public void setDate(String date) {
-        this.date = date;
+    public void setBillDate(LocalDateTime billDate) {
+        this.billDate = billDate;
     }
     
     public static class BillItemRequest {
