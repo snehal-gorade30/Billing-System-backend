@@ -102,14 +102,9 @@ public class ItemController {
     }
     
     @PutMapping("/{id}/stock")
-    public ResponseEntity<?> updateItemStock(@PathVariable Long id, @RequestBody StockUpdateRequest request) {
+    public ResponseEntity<?> updateItemStock(@PathVariable Long id, @Valid @RequestBody StockUpdateRequest request) {
         try {
-            Item existingItem = itemService.getItemById(id)
-                .orElseThrow(() -> new RuntimeException("Item not found with id: " + id));
-            
-            existingItem.setCurrentStock(request.getCurrentStock());
-            Item updatedItem = itemService.saveItem(existingItem);
-            
+            Item updatedItem = itemService.updateItemStock(id, request.getCurrentStock());
             return ResponseEntity.ok(updatedItem);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error updating stock: " + e.getMessage());

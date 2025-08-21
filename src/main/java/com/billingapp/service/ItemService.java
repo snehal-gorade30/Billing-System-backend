@@ -127,4 +127,13 @@ public class ItemService {
             reduceStock(itemQty.getItemId(), itemQty.getQuantity());
         }
     }
+    
+    @Transactional
+    public Item updateItemStock(Long id, int newStock) {
+        Item item = itemRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Item not found with id: " + id));
+            
+        item.setCurrentStock(newStock);
+        return itemRepository.save(item);
+    }
 }
